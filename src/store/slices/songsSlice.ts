@@ -1,29 +1,56 @@
-import {createSlice} from '@reduxjs/toolkit'
+import {createSlice, createAsyncThunk} from '@reduxjs/toolkit'
 import type { PayloadAction } from '@reduxjs/toolkit'
+import axios from "axios";
+import {variablesConst} from "../../constants/variables";
 
 export interface SongsState {
-  results: Array<any>,
+  results: any,
   limit: number,
-  query: any
+  query: any,
+  loading: boolean
 }
 
 let initialState: SongsState = {
   results: [],
   limit: 10,
-  query: ''
+  query: '',
+  loading: false
 }
+
+
+export const getSongs = createAsyncThunk('songs/getSongs', (props:any) => {
+  const {query, limit} = props
+  return axios({
+    method: 'GET',
+    url: 'https://itunes.apple.com/search?',
+    params: {term: query, limit, media: variablesConst.media}
+  }).then((response) => response.data)
+})
 
 export const songsSlice = createSlice({
   name: 'songs',
   initialState,
+  extraReducers: builder => {
+    builder.addCase(getSongs.pending, state => {
+      state.loading = true
+    })
+    builder.addCase(getSongs.fulfilled, (state, action) => {
+      state.loading = false
+      state.results = action.payload.results.map((item: {
+        artistName: string; collectionCensoredName: string;
+        trackCensoredName: string; artworkUrl100: string; trackId: number
+      }) => {
+        return {
+          artist: item.artistName,
+          album: item.collectionCensoredName,
+          song: item.trackCensoredName,
+          coverImage: item.artworkUrl100,
+          trackId: item.trackId
+        }
+      })
+    })
+  },
   reducers: {
-    resetList: (state) => {
-      state.results= [];
-      state.limit = 10;
-    },
-    addList: (state, action: PayloadAction<any>) => {
-      state.results= [state.results, ...action.payload];
-    },
     increaseCounter: (state) => {
       state.limit = state.limit + 10;
     },
@@ -35,7 +62,6 @@ export const songsSlice = createSlice({
   },
 })
 
-// Action creators are generated for each case reducer function
-export const { resetList, addList, increaseCounter, setQuery } = songsSlice.actions
+export const { increaseCounter, setQuery } = songsSlice.actions
 
 export default songsSlice.reducer
